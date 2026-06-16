@@ -119,7 +119,7 @@ else:
     st.sidebar.write("---")
 
     st.title("FORECASTING PENJUALAN UMKM KONVEKSI")
-    st.subheader("Metode Holt-Winters Additive — Optimasi Parameter Otomatis")
+    st.subheader("Metode Holt-Winters Aditif — Optimasi Parameter ")
     st.write("---")
 
     # --- FITUR DOWNLOAD TEMPLATE EXCEL ---
