@@ -2,44 +2,88 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
+import io
 
-# Set konfigurasi halaman web
+# Konfigurasi antarmuka aplikasi web
 st.set_page_config(page_title="Forecasting UMKM Konveksi", layout="wide")
 
-# --- INITIALIZATION SESSION STATE (Cek Status Login) ---
+# --- INISIALISASI SESSION STATE ---
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 
-# --- FUNGSI ALGORITMA HOLT-WINTERS ---
-def holt_winters_additive(series, alpha, beta, gamma, season_length, n_preds):
-    level = np.mean(series[:season_length])
-    trend = np.mean([(series[i + season_length] - series[i]) / season_length for i in range(season_length)])
-    seasonals = [series[i] - level for i in range(season_length)]
+if "forecast_results" not in st.session_state:
+    st.session_state.forecast_results = None
 
-    levels = [level]
-    trends = [trend]
-    fitted = []
 
-    for i, value in enumerate(series):
-        seasonal = seasonals[i - season_length] if i >= season_length else seasonals[i]
-        new_level = alpha * (value - seasonal) + (1 - alpha) * (levels[-1] + trends[-1])
-        new_trend = beta * (new_level - levels[-1]) + (1 - beta) * trends[-1]
-        new_seasonal = gamma * (value - new_level) + (1 - gamma) * seasonal
+# --- FUNGSI METODE HOLT-WINTERS (SINKRON 100% DENGAN EXCEL MANUAL) ---
+def holt_winters_additive_excel_exact(series, alpha, beta, gamma, season_length=12, n_preds=12):
+    n = len(series)
+    
+    # 1. Inisialisasi Ilmiah Teoretis
+    init_level = np.mean(series[:season_length])
+    # Trend awal: rata-rata perubahan antar musim di tahun pertama
+    init_trend = np.mean([(series[i + season_length] - series[i]) / season_length for i in range(season_length)])
+    # Musiman awal
+    init_seasonals = [series[i] - init_level for i in range(season_length)]
 
-        levels.append(new_level)
-        trends.append(new_trend)
-        seasonals.append(new_seasonal)
-        fitted.append(new_level + new_trend + new_seasonal)
+    levels = [0.0] * n
+    trends = [0.0] * n
+    seasonals = [0.0] * (n + n_preds) # Ekstensi ruang untuk seasonal forecasting
+    fitted = [0.0] * n
+    
+    # Isi nilai awal untuk siklus pertama (0 s.d 11)
+    for i in range(season_length):
+        seasonals[i] = init_seasonals[i]
+    
+    # Jangkar awal level dan trend ditempatkan pada titik akhir tahun pertama
+    levels[season_length - 1] = init_level
+    trends[season_length - 1] = init_trend
+    
+    # Periode tahun pertama diisi NaN untuk fitted karena digunakan sebagai base inisialisasi
+    for i in range(season_length):
+        fitted[i] = np.nan 
 
-    forecast = [
-        levels[-1] + h * trends[-1] + seasonals[-season_length + (h - 1) % season_length]
-        for h in range(1, n_preds + 1)
-    ]
+    # 2. Perhitungan Iterasi Berjalan (Fase Smoothing: Bulan ke-13 s.d 36)
+    for i in range(season_length, n):
+        # RUMUS FORECAST INTERNAL: ŷ_t = L_(t-1) + T_(t-1) + S_(t-s)
+        fitted[i] = levels[i-1] + trends[i-1] + seasonals[i-season_length]
+        
+        # RUMUS SMOOTHING LEVEL: L_t = α(Y_t - S_(t-s)) + (1-α)(L_(t-1) + T_(t-1))
+        levels[i] = alpha * (series[i] - seasonals[i-season_length]) + (1 - alpha) * (levels[i-1] + trends[i-1])
+        
+        # RUMUS SMOOTHING TREND: T_t = β(L_t - L_(t-1)) + (1-β)T_(t-1)
+        trends[i] = beta * (levels[i] - levels[i-1]) + (1 - beta) * trends[i-1]
+        
+        # RUMUS SMOOTHING SEASONAL: S_t = γ(Y_t - L_t) + (1-γ)S_(t-s)
+        seasonals[i] = gamma * (series[i] - levels[i]) + (1 - gamma) * seasonals[i-season_length]
+
+    # 3. Peramalan Masa Depan (Fase Out-of-Sample Forecasting: Bulan ke-37 s.d 48)
+    forecast = []
+    for h in range(1, n_preds + 1):
+        # RUMUS EVALUASI MATEMATIS MULTI-STEP AHEAD
+        f_val = levels[-1] + (h * trends[-1]) + seasonals[n - season_length + ((h - 1) % season_length)]
+        forecast.append(f_val)
+        
     return fitted, forecast
 
 
+# --- FUNGSI MEMBUAT TEMPLATE EXCEL OTOMATIS ---
+def generate_template():
+    output = io.BytesIO()
+    # Membuat contoh data structure template untuk user
+    df_template = pd.DataFrame({
+        "Bulan": ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"],
+        "2023": [5621000, 6171500, 6132000, 6866000, 7259000, 11144000, 11111000, 7232000, 9555000, 10137000, 7499000, 6521500],
+        "2024": [7454600, 6587500, 7899000, 8412000, 8175200, 11691890, 12278167, 7541100, 10829300, 9476752, 8287200, 7321800],
+        "2025": [8218300, 7827000, 8777000, 8699000, 9791000, 12603000, 13235700, 8714500, 11684500, 12347500, 8921900, 8989500]
+    })
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df_template.to_excel(writer, index=False, sheet_name='Template_Forecasting')
+    return output.getvalue()
+
+
 # =====================================================================
-# 1. HALAMAN LOGIN
+# 1. HALAMAN LOGIN SISTEM
 # =====================================================================
 if not st.session_state.logged_in:
     col1, col2, col3 = st.columns([1, 2, 1])
@@ -47,7 +91,6 @@ if not st.session_state.logged_in:
         st.write("#")
         st.write("#")
         st.markdown("<h2 style='text-align: center;'>🔐 KELOLA AKSES SISTEM</h2>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align: center; color: gray;'>Silakan login untuk mengakses sistem peramalan konveksi</p>", unsafe_allow_html=True)
         
         with st.form("login_form"):
             username = st.text_input("Username")
@@ -55,159 +98,202 @@ if not st.session_state.logged_in:
             submit_button = st.form_submit_button("Masuk ke Sistem", use_container_width=True)
             
             if submit_button:
-                if username == "admin" and password == "konveksi123":
+                if username == "admin" and password == "admin":
                     st.session_state.logged_in = True
                     st.success("Login Berhasil!")
                     st.rerun()
                 else:
-                    st.error("Username atau Password salah! Silakan coba lagi.")
+                    st.error("Username atau Password salah!")
 
 
 # =====================================================================
-# 2. HALAMAN UTAMA PERAMALAN (SUDAH LOGIN)
+# 2. HALAMAN UTAMA DASHBOARD PERAMALAN
 # =====================================================================
 else:
-    # Tombol Logout di Sidebar
     st.sidebar.markdown(f"**Selamat Datang, Admin** 👋")
     if st.sidebar.button("🚪 Keluar Sistem", use_container_width=True):
         st.session_state.logged_in = False
+        st.session_state.forecast_results = None 
         st.rerun()
     
     st.sidebar.write("---")
 
-    # Judul Aplikasi
     st.title("FORECASTING PENJUALAN UMKM KONVEKSI")
-    st.subheader("Metode Holt-Winters Additive dengan Optimasi Grid Search")
+    st.subheader("Metode Holt-Winters Additive — Optimasi Parameter Otomatis")
     st.write("---")
 
-    # --- FITUR 1: INPUT FILE EXCEL / CSV ---
-    st.sidebar.header("Menu Input")
-    uploaded_file = st.sidebar.file_uploader("Unggah File Excel atau CSV", type=["csv", "xlsx"])
+    # --- FITUR DOWNLOAD TEMPLATE EXCEL ---
+    st.sidebar.header("Unduh Berkas Contoh")
+    template_bytes = generate_template()
+    st.sidebar.download_button(
+        label="📥 Unduh Template Excel",
+        data=template_bytes,
+        file_name="template_data_konveksi.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        use_container_width=True
+    )
+    st.sidebar.write("---")
+
+    st.sidebar.header("Menu Input Berkas")
+    uploaded_file = st.sidebar.file_uploader("Unggah Berkas Excel (.xlsx)", type=["xlsx"])
 
     if uploaded_file is not None:
         try:
-            if uploaded_file.name.endswith('.csv'):
-                df = pd.read_csv(uploaded_file)
+            df = pd.read_excel(uploaded_file)
+            df.columns = [str(col).strip() for col in df.columns]
+            
+            if "2023" in df.columns and "2024" in df.columns and "2025" in df.columns:
+                data_2023 = pd.to_numeric(df["2023"], errors='coerce').dropna().iloc[:12].tolist()
+                data_2024 = pd.to_numeric(df["2024"], errors='coerce').dropna().iloc[:12].tolist()
+                data_2025 = pd.to_numeric(df["2025"], errors='coerce').dropna().iloc[:12].tolist()
+                data_penjualan = data_2023 + data_2024 + data_2025
             else:
-                df = pd.read_excel(uploaded_file)
-                
-            data_penjualan = df.iloc[:, 0].dropna().astype(float).tolist()
+                data_2023 = pd.to_numeric(df.iloc[:, 1], errors='coerce').dropna().iloc[:12].tolist()
+                data_2024 = pd.to_numeric(df.iloc[:, 2], errors='coerce').dropna().iloc[:12].tolist()
+                data_2025 = pd.to_numeric(df.iloc[:, 3], errors='coerce').dropna().iloc[:12].tolist()
+                data_penjualan = data_2023 + data_2024 + data_2025
 
-            if len(data_penjualan) < 36:
-                st.sidebar.error("Peringatan: Data minimal harus 36 bulan!")
+            if len(data_penjualan) != 36:
+                st.sidebar.error("Data tidak lengkap! Harus berisi penuh 36 bulan.")
             else:
-                st.sidebar.success(f"Sukses! {len(data_penjualan)} data berhasil dimuat.")
+                st.sidebar.success("Sukses! Data 36 bulan berhasil dimuat.")
                 
-                # --- FITUR 2 & 3: PROSES PERAMALAN DAN GRID SEARCH ---
-                if st.sidebar.button("Proses Forecasting", type="primary"):
-                    with st.spinner("Menghitung Grid Search Kombinasi Parameter... Silakan tunggu."):
-                        best_mape = float("inf")
-                        best_param = None
+                if st.sidebar.button("Proses Forecasting", type="primary", use_container_width=True):
+                    with st.spinner("Mencari Kombinasi Parameter Terbaik secara Otomatis..."):
+                        
                         grid_results = []
-
-                        # Loop Grid Search mencari kombinasi Alpha, Beta, Gamma (0.1 - 0.9)
+                        # Grid Search mencari kombinasi Alpha, Beta, Gamma (0.1 s.d 0.9)
                         for alpha in np.arange(0.1, 1.0, 0.1):
                             for beta in np.arange(0.1, 1.0, 0.1):
                                 for gamma in np.arange(0.1, 1.0, 0.1):
                                     alpha, beta, gamma = round(alpha, 1), round(beta, 1), round(gamma, 1)
                                     
-                                    fitted, _ = holt_winters_additive(data_penjualan, alpha, beta, gamma, 12, 12)
+                                    fitted, _ = holt_winters_additive_excel_exact(data_penjualan, alpha, beta, gamma)
                                     
-                                    y_true = np.array(data_penjualan)
-                                    y_pred = np.array(fitted)
-                                    mape = np.mean(np.abs((y_true - y_pred) / y_true)) * 100
+                                    # Hitung MAPE Realistis khusus Fase Evaluasi Berjalan (Bulan ke-13 s.d 36 / H14:H37)
+                                    errors_list = []
+                                    for t in range(12, 36):
+                                        y_true = data_penjualan[t]
+                                        y_pred = fitted[t]
+                                        if y_true != 0:
+                                            errors_list.append(abs(y_true - y_pred) / y_true)
                                     
-                                    grid_results.append([alpha, beta, gamma, round(mape, 2)])
-
-                                    if mape < best_mape:
-                                        best_mape = mape
-                                        best_param = (alpha, beta, gamma)
-
-                        # Mengunci parameter terbaik hasil Grid Search
-                        alpha_opt, beta_opt, gamma_opt = best_param
-                        fitted, forecast = holt_winters_additive(data_penjualan, alpha_opt, beta_opt, gamma_opt, 12, 12)
-                        total_data = len(data_penjualan)
-
-                    st.success("Analisis Parameter dan Peramalan Berhasil Diproses!")
-                    
-                    # Dashboard Ringkasan Utama (Kotak Metrik)
-                    col1, col2, col3, col4 = st.columns(4)
-                    col1.metric("Alpha (α) Optimal", alpha_opt)
-                    col2.metric("Beta (β) Optimal", beta_opt)
-                    col3.metric("Gamma (γ) Optimal", gamma_opt)
-                    col4.metric("MAPE Terkecil", f"{best_mape:.2f}%")
-                    st.write("---")
-
-                    # Pembuatan Dataframe untuk Tabel Kombinasi
-                    df_grid_all = pd.DataFrame(
-                        sorted(grid_results, key=lambda x: x[3]), 
-                        columns=["Alpha (α)", "Beta (β)", "Gamma (γ)", "MAPE (%)"]
-                    )
-                    df_best_final = df_grid_all.head(1).copy() 
-
-                    # --- MENAMPILKAN TABEL PARAMETER ---
-                    col_tabel1, col_tabel2 = st.columns([1, 2])
-                    
-                    with col_tabel1:
-                        st.subheader("📋 Parameter Terbaik (Final)")
-                        st.markdown("Kombinasi parameter paling minimum:")
-                        st.dataframe(df_best_final, use_container_width=True, hide_index=True)
+                                    mape = np.mean(errors_list) * 100
+                                    
+                                    grid_results.append({
+                                        "Alpha (α)": alpha,
+                                        "Beta (β)": beta,
+                                        "Gamma (γ)": gamma,
+                                        "MAPE (%)": round(mape, 2)
+                                    })
                         
-                    with col_tabel2:
-                        st.subheader("📊 Tabel Kombinasi Keseluruhan (Grid Search)")
-                        st.markdown("Daftar seluruh urutan eksperimen kombinasi parameter:")
-                        st.dataframe(df_grid_all, use_container_width=True)
+                        # Mengubah hasil ke DataFrame dan mengurutkan dari MAPE paling kecil
+                        df_all_combinations = pd.DataFrame(grid_results)
+                        df_all_combinations = df_all_combinations.sort_values(by="MAPE (%)", ascending=True).reset_index(drop=True)
+                        
+                        # Ambil peringkat terbaik ke-1
+                        best_row = df_all_combinations.iloc[0]
+                        alpha_opt = best_row["Alpha (α)"]
+                        beta_opt = best_row["Beta (β)"]
+                        gamma_opt = best_row["Gamma (γ)"]
+                        best_mape = best_row["MAPE (%)"]
+                        
+                        # Ambil nilai komparasi sekunder khusus tahun 2025 saja (Bulan ke-25 s.d 36 / H26:H37)
+                        fitted_opt, forecast_opt = holt_winters_additive_excel_exact(data_penjualan, alpha_opt, beta_opt, gamma_opt)
+                        errors_2025 = [abs(data_penjualan[t] - fitted_opt[t]) / data_penjualan[t] for t in range(24, 36)]
+                        mape_2025_opt = np.mean(errors_2025) * 100
+                        
+                        st.session_state.forecast_results = {
+                            "alpha_opt": alpha_opt,
+                            "beta_opt": beta_opt,
+                            "gamma_opt": gamma_opt,
+                            "best_mape": best_mape,         # MAPE Total 24 Bulan (2024-2025)
+                            "mape_2025": mape_2025_opt,     # MAPE 2025 saja
+                            "df_all": df_all_combinations,
+                            "data_penjualan": data_penjualan,
+                            "fitted": fitted_opt,
+                            "forecast": forecast_opt
+                        }
 
+                # --- PANEL HASIL DASHBOARD UTAMA ---
+                if st.session_state.forecast_results is not None:
+                    res = st.session_state.forecast_results
+                    total_data = len(res["data_penjualan"])
+
+                    st.success("Sistem Berhasil Menemukan Parameter Terbaik!")
+                    
+                    # Tampilan Parameter Terbaik dalam Kotak Metrik Komprehensif
+                    col1, col2, col3, col4, col5 = st.columns(5)
+                    col1.metric("Alpha (α) Opt", res["alpha_opt"])
+                    col2.metric("Beta (β) Opt", res["beta_opt"])
+                    col3.metric("Gamma (γ) Opt", res["gamma_opt"])
+                    col4.metric("MAPE Total (2024-2025)", f"{res['best_mape']:.2f}%")
+                    col5.metric("MAPE Uji (2025 Only)", f"{res['mape_2025']:.2f}%")
                     st.write("---")
 
-                    # --- FITUR GRAFIK PERAMALAN INTERAKTIF ---
-                    st.subheader("📈 Grafik Hasil Peramalan Penjualan")
+                    # TABEL TOP 3 KOMBINASI TERBAIK
+                    st.subheader("🏆 Tabel Top 3 Kombinasi Parameter Terbaik")
+                    df_top3 = res["df_all"].head(3).copy()
+                    df_top3.index = ["Peringkat 1 (Terbaik)", "Peringkat 2", "Peringkat 3"]
+                    st.table(df_top3)
+                    st.write("---")
+
+                    # Grafis Komparasi Garis Penjualan Berjalan & Hasil Prediksi 2026
+                    st.subheader("📈 Visualisasi Grafik Berdasarkan Parameter Terbaik No.1")
                     fig = go.Figure()
                     
-                    # Garis Data Aktual
-                    fig.add_trace(go.Scatter(x=list(range(1, total_data + 1)), y=data_penjualan, name="Data Aktual", mode="lines+markers"))
-                    # Garis Hasil Fitting (Model)
-                    fig.add_trace(go.Scatter(x=list(range(1, total_data + 1)), y=fitted, name="Hasil Fitting", line=dict(dash='dash')))
-                    # Garis Prediksi Masa Depan
-                    fig.add_trace(go.Scatter(x=list(range(total_data + 1, total_data + 13)), y=forecast, name="Forecast 12 Bulan ke Depan", mode="lines+markers"))
+                    fig.add_trace(go.Scatter(
+                        x=list(range(1, total_data + 1)), y=res["data_penjualan"], 
+                        name="Data Aktual", mode="lines+markers",
+                        line=dict(color='#1F77B4', width=3.5), marker=dict(size=6)
+                    ))
+                    
+                    fig.add_trace(go.Scatter(
+                        x=list(range(1, total_data + 1)), y=res["fitted"], 
+                        name="Hasil Fitting (Model)", mode="lines",
+                        line=dict(color='#FF7F0E', width=2.5, dash='dash')
+                    ))
+                    
+                    fig.add_trace(go.Scatter(
+                        x=list(range(total_data + 1, total_data + 13)), y=res["forecast"], 
+                        name="Forecast 12 Bulan ke Depan (2026)", mode="lines+markers",
+                        line=dict(color='#2CA02C', width=3), marker=dict(size=7, symbol='diamond')
+                    ))
                     
                     fig.update_layout(
-                        xaxis_title="Periode (Bulan)", 
-                        yaxis_title="Jumlah Penjualan (Pcs/Rp)", 
+                        xaxis_title="Periode (Bulan ke-)", yaxis_title="Jumlah Penjualan", 
                         hovermode="x unified",
                         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
                     )
                     st.plotly_chart(fig, use_container_width=True)
-
                     st.write("---")
 
-                    # TABEL DETAIL PREDIKSI PER PERIODE
-                    st.subheader("🗂️ Detail Nilai Peramalan per Periode")
-                    periode_aktual = list(range(1, total_data + 1))
-                    periode_forecast = list(range(total_data + 1, total_data + 13))
+                    # TABEL KESELURUHAN KOMBINASI (URUT DARI YANG TERBAIK)
+                    st.subheader("📊 Tabel Seluruh Kombinasi Hasil Pengujian (Grid Search)")
+                    st.dataframe(res["df_all"], use_container_width=True)
+                    st.write("---")
                     
-                    df_aktual = pd.DataFrame({
-                        "Periode": periode_aktual,
-                        "Data Aktual": [f"{x:,.0f}" for x in data_penjualan],
-                        "Forecast / Fitting": [f"{x:,.0f}" for x in fitted]
-                    })
-                    df_forecast = pd.DataFrame({
-                        "Periode": periode_forecast,
-                        "Data Aktual": "-",
-                        "Forecast / Fitting": [f"{x:,.0f}" for x in forecast]
-                    })
+                    # Tabel Detail Nilai Angka Angka Per Periode Berjalan
+                    st.subheader("📂 Detail Nilai Penjualan Per Periode")
                     
-                    df_total_periode = pd.concat([df_aktual, df_forecast], ignore_index=True)
-                    st.dataframe(df_total_periode, use_container_width=True, hide_index=True)
+                    fitted_clean = []
+                    for val in res["fitted"]:
+                        if pd.isna(val):
+                            fitted_clean.append("-")
+                        else:
+                            fitted_clean.append(f"{float(val):,.0f}".replace(",", "."))
 
-                    # Tombol Unduh untuk Lampiran Berkas Skripsi
-                    st.download_button(
-                        label="📥 Unduh Seluruh Kombinasi Grid Search (CSV)",
-                        data=df_grid_all.to_csv(index=False).encode('utf-8'),
-                        file_name='Kombinasi_Grid_Search_Holt_Winters.csv',
-                        mime='text/csv',
-                    )
+                    df_akt = pd.DataFrame({
+                        "Periode": list(range(1, total_data + 1)),
+                        "Data Aktual": [f"{float(x):,.0f}".replace(",", ".") for x in res["data_penjualan"]],
+                        "Forecast / Fitting": fitted_clean
+                    })
+                    df_frc = pd.DataFrame({
+                        "Periode": list(range(total_data + 1, total_data + 13)),
+                        "Data Aktual": "-",
+                        "Forecast / Fitting": [f"{float(x):,.0f}".replace(",", ".") for x in res["forecast"]]
+                    })
+                    st.dataframe(pd.concat([df_akt, df_frc], ignore_index=True), use_container_width=True, hide_index=True)
+
         except Exception as e:
-            st.error(f"Terjadi kesalahan sistem: {str(e)}")
-    else:
-        st.info("Silakan unggah file penjualan konveksi pada menu di sebelah kiri untuk memulai.")
+            st.error(f"Terjadi kesalahan teknis pembacaan berkas: {str(e)}")
