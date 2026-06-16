@@ -15,7 +15,7 @@ if "forecast_results" not in st.session_state:
     st.session_state.forecast_results = None
 
 
-# --- FUNGSI METODE HOLT-WINTERS (SINKRON 100% DENGAN EXCEL MANUAL) ---
+# --- FUNGSI METODE HOLT-WINTERS ---
 def holt_winters_additive_excel_exact(series, alpha, beta, gamma, season_length=12, n_preds=12):
     n = len(series)
     
