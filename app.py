@@ -74,7 +74,7 @@ def generate_template():
     df_template = pd.DataFrame({
         "Bulan": ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"],
         "2023": [5621000, 6171500, 6132000, 6866000, 7259000, 11144000, 11111000, 7232000, 9555000, 10137000, 7499000, 6521500],
-        "2024": [7454600, 6587500, 7899000, 8412000, 8175200, 11691890, 12278167, 7541100, 10829300, 9476752, 8287200, 7321800],
+        "2024": [7454600, 6587500, 7899000, 8412000, 8175200, 11691890, 12278167, 7541100, 10829300, 11065000, 8287200, 7321800],
         "2025": [8218300, 7827000, 8777000, 8699000, 9791000, 12603000, 13235700, 8714500, 11684500, 12347500, 8921900, 8989500]
     })
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
@@ -123,10 +123,10 @@ else:
     st.write("---")
 
     # --- FITUR DOWNLOAD TEMPLATE EXCEL ---
-    st.sidebar.header("Unduh Berkas Contoh")
+    st.sidebar.header("Unduh Tamplate")
     template_bytes = generate_template()
     st.sidebar.download_button(
-        label="📥 Unduh Template Excel",
+        label="📥 Klik Disini ",
         data=template_bytes,
         file_name="template_data_konveksi.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -137,29 +137,46 @@ else:
     st.sidebar.header("Menu Input Berkas")
     uploaded_file = st.sidebar.file_uploader("Unggah Berkas Excel (.xlsx)", type=["xlsx"])
 
-    if uploaded_file is not None:
+    # --- PERBAIKAN: JIKA BERKAS DISILANG ATAU KOSONG, RESET HASILNYA ---
+    if uploaded_file is None:
+        if st.session_state.forecast_results is not None:
+            st.session_state.forecast_results = None
+            st.rerun()  # Memaksa antarmuka web memuat ulang tampilan menjadi bersih kembali
+
+    else:
         try:
             df = pd.read_excel(uploaded_file)
             df.columns = [str(col).strip() for col in df.columns]
             
+            # (Gunakan pembersihan data .round().astype(int) yang telah kita bahas sebelumnya)
             if "2023" in df.columns and "2024" in df.columns and "2025" in df.columns:
-                data_2023 = pd.to_numeric(df["2023"], errors='coerce').dropna().iloc[:12].tolist()
-                data_2024 = pd.to_numeric(df["2024"], errors='coerce').dropna().iloc[:12].tolist()
-                data_2025 = pd.to_numeric(df["2025"], errors='coerce').dropna().iloc[:12].tolist()
+                data_2023 = pd.to_numeric(df["2023"], errors='coerce').dropna().iloc[:12].round().astype(int).tolist()
+                data_2024 = pd.to_numeric(df["2024"], errors='coerce').dropna().iloc[:12].round().astype(int).tolist()
+                data_2025 = pd.to_numeric(df["2025"], errors='coerce').dropna().iloc[:12].round().astype(int).tolist()
                 data_penjualan = data_2023 + data_2024 + data_2025
             else:
-                data_2023 = pd.to_numeric(df.iloc[:, 1], errors='coerce').dropna().iloc[:12].tolist()
-                data_2024 = pd.to_numeric(df.iloc[:, 2], errors='coerce').dropna().iloc[:12].tolist()
-                data_2025 = pd.to_numeric(df.iloc[:, 3], errors='coerce').dropna().iloc[:12].tolist()
+                data_2023 = pd.to_numeric(df.iloc[:, 1], errors='coerce').dropna().iloc[:12].round().astype(int).tolist()
+                data_2024 = pd.to_numeric(df.iloc[:, 2], errors='coerce').dropna().iloc[:12].round().astype(int).tolist()
+                data_2025 = pd.to_numeric(df.iloc[:, 3], errors='coerce').dropna().iloc[:12].round().astype(int).tolist()
                 data_penjualan = data_2023 + data_2024 + data_2025
 
             if len(data_penjualan) != 36:
                 st.sidebar.error("Data tidak lengkap! Harus berisi penuh 36 bulan.")
+                # Jika data file baru tidak valid atau rusak, sembunyikan hasil kalkulasi lama
+                st.session_state.forecast_results = None 
             else:
                 st.sidebar.success("Sukses! Data 36 bulan berhasil dimuat.")
                 
+                # --- PERBAIKAN KEDUA: JIKA PENGGUNA GANTI FILE BARU, SINKRONKAN HASILNYA ---
+                # Menggunakan logika deteksi perubahan panjang/nilai dasar data untuk mereset dashboard lama
+                if st.session_state.forecast_results is not None:
+                    if st.session_state.forecast_results["data_penjualan"] != data_penjualan:
+                        st.session_state.forecast_results = None
+                        st.rerun()
+
                 if st.sidebar.button("Proses Forecasting", type="primary", use_container_width=True):
                     with st.spinner("Mencari Kombinasi Parameter Terbaik secara Otomatis..."):
+                        # ... (Sisa kode Grid Search Anda tetap sama seperti sebelumnya) ...
                         
                         grid_results = []
                         # Grid Search mencari kombinasi Alpha, Beta, Gamma (0.1 s.d 0.9)
