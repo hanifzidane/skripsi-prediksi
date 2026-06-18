@@ -243,38 +243,37 @@ else:
                             border: 1px solid rgba(128, 128, 128, 0.3);
                             border-radius: 8px;
                             margin-bottom: 20px;
-                            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
                         }
                         .large-data-table {
                             width: 100%;
                             border-collapse: collapse;
                             font-size: 20px; 
                             font-family: 'Courier New', Courier, monospace;
+                            background-color: transparent !important;
                         }
                         .large-data-table th {
-                            background-color: #1F2937 !important; /* Warna Gelap solid untuk header agar teks kontras */
-                            color: #FFFFFF !important;
+                            background-color: var(--secondary-background-color) !important; 
+                            color: var(--text-color) !important;
                             padding: 14px 16px;
                             text-align: left;
                             font-size: 18px; 
                             font-weight: bold;
-                            border-bottom: 3px solid #4B5563;
+                            border-bottom: 3px solid rgba(128, 128, 128, 0.4);
                             position: sticky;
                             top: 0;
                             z-index: 1;
                         }
-                        /* Mode gelap/terang otomatis menggunakan filter kecerahan bawaan container tema */
                         .large-data-table td {
                             padding: 12px 16px;
                             border-bottom: 1px solid rgba(128, 128, 128, 0.2);
-                            background-color: #111827; /* Dasar gelap solid agar konsisten */
-                            color: #F9FAFB;
+                            background-color: transparent !important;
+                            color: var(--text-color) !important;
                         }
                         .large-data-table tr:nth-child(even) td {
-                            background-color: #1F2937; /* Warna baris belang (zebra) */
+                            background-color: var(--secondary-background-color) !important; 
                         }
                         .large-data-table tr:hover td {
-                            background-color: #374151 !important; /* Efek sorot baris saat kursor melintas */
+                            filter: brightness(0.92);
                         }
                         </style>
                     """, unsafe_allow_html=True)
@@ -374,18 +373,18 @@ else:
                             font-size: 18px;
                         }
                         .custom-table th {
-                            background-color: #1F2937;
-                            color: #FFFFFF;
+                            background-color: var(--secondary-background-color) !important; 
+                            color: var(--text-color) !important;
                             padding: 12px;
                             text-align: left;
                             font-weight: bold;
-                            border-bottom: 2px solid #4B5563;
+                            border-bottom: 2px solid rgba(128, 128, 128, 0.4);
                         }
                         .custom-table td {
                             padding: 14px 12px;
                             border-bottom: 1px solid rgba(128, 128, 128, 0.2);
-                            background-color: #111827;
-                            color: #F9FAFB;
+                            background-color: transparent !important;
+                            color: var(--text-color) !important;
                         }
                         .font-angka {
                             font-size: 24px; 
