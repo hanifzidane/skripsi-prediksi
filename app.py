@@ -233,7 +233,7 @@ else:
                     col4.metric("MAPE Total (2024-2025)", f"{res['best_mape']:.2f}%")
                     st.write("---")
 
-                    # --- STYLE CSS ADAPTIF TOTAL (DARK MODE & LIGHT MODE AUTOMATIC) ---
+                    # --- STYLE CSS 100% ADAPTIF TOTAL & HEADER TIDAK TEMBUS (NON-TRANSPARENT HEADER) ---
                     st.markdown("""
                         <style>
                         .large-table-container {
@@ -249,9 +249,10 @@ else:
                             border-collapse: collapse;
                             font-size: 20px; 
                             font-family: 'Courier New', Courier, monospace;
-                            background-color: transparent !important;
+                            background-color: var(--background-color) !important; /* Latar belakang dasar tabel mengikuti tema utama */
                         }
                         .large-data-table th {
+                            /* Menggunakan background sekunder padat agar data yang di-scroll ke atas tidak menembus teks header */
                             background-color: var(--secondary-background-color) !important; 
                             color: var(--text-color) !important;
                             padding: 14px 16px;
@@ -261,14 +262,16 @@ else:
                             border-bottom: 3px solid rgba(128, 128, 128, 0.4);
                             position: sticky;
                             top: 0;
-                            z-index: 1;
+                            z-index: 999; /* Z-Index tinggi menjamin posisi header selalu di atas baris data */
+                            opacity: 1 !important;
                         }
                         .large-data-table td {
                             padding: 12px 16px;
                             border-bottom: 1px solid rgba(128, 128, 128, 0.2);
-                            background-color: transparent !important;
+                            background-color: var(--background-color) !important;
                             color: var(--text-color) !important;
                         }
+                        /* Efek baris belang-belang (Zebra) */
                         .large-data-table tr:nth-child(even) td {
                             background-color: var(--secondary-background-color) !important; 
                         }
@@ -371,6 +374,7 @@ else:
                             width: 100%;
                             border-collapse: collapse;
                             font-size: 18px;
+                            background-color: var(--background-color) !important;
                         }
                         .custom-table th {
                             background-color: var(--secondary-background-color) !important; 
@@ -383,7 +387,7 @@ else:
                         .custom-table td {
                             padding: 14px 12px;
                             border-bottom: 1px solid rgba(128, 128, 128, 0.2);
-                            background-color: transparent !important;
+                            background-color: var(--background-color) !important;
                             color: var(--text-color) !important;
                         }
                         .font-angka {
@@ -400,19 +404,19 @@ else:
                             </tr>
                             <tr>
                                 <td class="font-angka">&lt; 10%</td>
-                                <td>Sangat Akurat</td>
+                                <td>Sangat Akurat (Highly Accurate)</td>
                             </tr>
                             <tr>
                                 <td class="font-angka">10% - 20%</td>
-                                <td>Baik</td>
+                                <td>Baik (Good)</td>
                             </tr>
                             <tr>
                                 <td class="font-angka">20% - 50%</td>
-                                <td>Cukup</td>
+                                <td>Layak (Reasonable)</td>
                             </tr>
                             <tr>
                                 <td class="font-angka">&gt; 50%</td>
-                                <td>Tidak Akurat</td>
+                                <td>Inakurat (Inaccurate)</td>
                             </tr>
                         </table>
                         """, unsafe_allow_html=True)
@@ -421,13 +425,13 @@ else:
                         mape_final = res["best_mape"]
                         
                         if mape_final < 10:
-                            kategori = "**Sangat Akurat**"
+                            kategori = "**Sangat Akurat (Highly Accurate)**"
                         elif mape_final <= 20:
-                            kategori = "**Baik**"
+                            kategori = "**Baik (Good)**"
                         elif mape_final <= 50:
-                            kategori = "**Cukup**"
+                            kategori = "**Layak (Reasonable)**"
                         else:
-                            kategori = "**Tidak Akurat**"
+                            kategori = "**Inakurat (Inaccurate)**"
                             
                         st.markdown(f"""
                         **Penjelasan Singkat Akurasi Model:**
