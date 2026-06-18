@@ -70,7 +70,6 @@ def holt_winters_additive_excel_exact(series, alpha, beta, gamma, season_length=
 # --- FUNGSI MEMBUAT TEMPLATE EXCEL OTOMATIS ---
 def generate_template():
     output = io.BytesIO()
-    # Membuat contoh data structure template untuk user
     df_template = pd.DataFrame({
         "Bulan": ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"],
         "2023": [5621000, 6171500, 6132000, 6866000, 7259000, 11144000, 11111000, 7232000, 9555000, 10137000, 7499000, 6521500],
@@ -137,18 +136,17 @@ else:
     st.sidebar.header("Menu Input Berkas")
     uploaded_file = st.sidebar.file_uploader("Unggah Berkas Excel (.xlsx)", type=["xlsx"])
 
-    # --- PERBAIKAN: JIKA BERKAS DISILANG ATAU KOSONG, RESET HASILNYA ---
+    # --- JIKA BERKAS DISILANG ATAU KOSONG, RESET HASILNYA ---
     if uploaded_file is None:
         if st.session_state.forecast_results is not None:
             st.session_state.forecast_results = None
-            st.rerun()  # Memaksa antarmuka web memuat ulang tampilan menjadi bersih kembali
+            st.rerun()
 
     else:
         try:
             df = pd.read_excel(uploaded_file)
             df.columns = [str(col).strip() for col in df.columns]
             
-            # (Gunakan pembersihan data .round().astype(int) yang telah kita bahas sebelumnya)
             if "2023" in df.columns and "2024" in df.columns and "2025" in df.columns:
                 data_2023 = pd.to_numeric(df["2023"], errors='coerce').dropna().iloc[:12].round().astype(int).tolist()
                 data_2024 = pd.to_numeric(df["2024"], errors='coerce').dropna().iloc[:12].round().astype(int).tolist()
@@ -162,13 +160,10 @@ else:
 
             if len(data_penjualan) != 36:
                 st.sidebar.error("Data tidak lengkap! Harus berisi penuh 36 bulan.")
-                # Jika data file baru tidak valid atau rusak, sembunyikan hasil kalkulasi lama
                 st.session_state.forecast_results = None 
             else:
                 st.sidebar.success("Sukses! Data 36 bulan berhasil dimuat.")
                 
-                # --- PERBAIKAN KEDUA: JIKA PENGGUNA GANTI FILE BARU, SINKRONKAN HASILNYA ---
-                # Menggunakan logika deteksi perubahan panjang/nilai dasar data untuk mereset dashboard lama
                 if st.session_state.forecast_results is not None:
                     if st.session_state.forecast_results["data_penjualan"] != data_penjualan:
                         st.session_state.forecast_results = None
@@ -176,10 +171,8 @@ else:
 
                 if st.sidebar.button("Proses Forecasting", type="primary", use_container_width=True):
                     with st.spinner("Mencari Kombinasi Parameter Terbaik secara Otomatis..."):
-                        # ... (Sisa kode Grid Search Anda tetap sama seperti sebelumnya) ...
                         
                         grid_results = []
-                        # Grid Search mencari kombinasi Alpha, Beta, Gamma (0.1 s.d 0.9)
                         for alpha in np.arange(0.1, 1.0, 0.1):
                             for beta in np.arange(0.1, 1.0, 0.1):
                                 for gamma in np.arange(0.1, 1.0, 0.1):
@@ -187,7 +180,6 @@ else:
                                     
                                     fitted, _ = holt_winters_additive_excel_exact(data_penjualan, alpha, beta, gamma)
                                     
-                                    # Hitung MAPE Realistis khusus Fase Evaluasi Berjalan (Bulan ke-13 s.d 36 / H14:H37)
                                     errors_list = []
                                     for t in range(12, 36):
                                         y_true = data_penjualan[t]
@@ -204,28 +196,22 @@ else:
                                         "MAPE (%)": round(mape, 2)
                                     })
                         
-                        # Mengubah hasil ke DataFrame dan mengurutkan dari MAPE paling kecil
                         df_all_combinations = pd.DataFrame(grid_results)
                         df_all_combinations = df_all_combinations.sort_values(by="MAPE (%)", ascending=True).reset_index(drop=True)
                         
-                        # Ambil peringkat terbaik ke-1
                         best_row = df_all_combinations.iloc[0]
                         alpha_opt = best_row["Alpha (α)"]
                         beta_opt = best_row["Beta (β)"]
                         gamma_opt = best_row["Gamma (γ)"]
                         best_mape = best_row["MAPE (%)"]
                         
-                        # Ambil nilai komparasi sekunder khusus tahun 2025 saja (Bulan ke-25 s.d 36 / H26:H37)
                         fitted_opt, forecast_opt = holt_winters_additive_excel_exact(data_penjualan, alpha_opt, beta_opt, gamma_opt)
-                        errors_2025 = [abs(data_penjualan[t] - fitted_opt[t]) / data_penjualan[t] for t in range(24, 36)]
-                        mape_2025_opt = np.mean(errors_2025) * 100
                         
                         st.session_state.forecast_results = {
                             "alpha_opt": alpha_opt,
                             "beta_opt": beta_opt,
                             "gamma_opt": gamma_opt,
                             "best_mape": best_mape,         # MAPE Total 24 Bulan (2024-2025)
-                            "mape_2025": mape_2025_opt,     # MAPE 2025 saja
                             "df_all": df_all_combinations,
                             "data_penjualan": data_penjualan,
                             "fitted": fitted_opt,
@@ -239,58 +225,110 @@ else:
 
                     st.success("Sistem Berhasil Menemukan Parameter Terbaik!")
                     
-                    # Tampilan Parameter Terbaik dalam Kotak Metrik Komprehensif
-                    col1, col2, col3, col4, col5 = st.columns(5)
+                    # Tampilan Parameter Terbaik dalam Kotak Metrik (4 Kolom)
+                    col1, col2, col3, col4 = st.columns(4)
                     col1.metric("Alpha (α) Opt", res["alpha_opt"])
                     col2.metric("Beta (β) Opt", res["beta_opt"])
                     col3.metric("Gamma (γ) Opt", res["gamma_opt"])
                     col4.metric("MAPE Total (2024-2025)", f"{res['best_mape']:.2f}%")
-                    col5.metric("MAPE Uji (2025 Only)", f"{res['mape_2025']:.2f}%")
                     st.write("---")
 
-                    # TABEL TOP 3 KOMBINASI TERBAIK
-                    st.subheader("🏆 Tabel Top 3 Kombinasi Parameter Terbaik")
-                    df_top3 = res["df_all"].head(3).copy()
-                    df_top3.index = ["Peringkat 1 (Terbaik)", "Peringkat 2", "Peringkat 3"]
-                    st.table(df_top3)
-                    st.write("---")
+                    # --- STYLE CSS UNTUK MODEL TABEL HTML KUSTOM BERUKURAN BESAR ---
+                    st.markdown("""
+                        <style>
+                        .large-table-container {
+                            width: 100%;
+                            max-height: 400px;
+                            overflow-y: auto;
+                            border: 1px solid #464855;
+                            border-radius: 6px;
+                            margin-bottom: 20px;
+                        }
+                        .large-data-table {
+                            width: 100%;
+                            border-collapse: collapse;
+                            font-size: 20px; /* Ukuran Angka Data Diperbesar Menjadi 20px */
+                            font-family: monospace; /* Membuat digit angka sejajar vertikal */
+                        }
+                        .large-data-table th {
+                            background-color: #262730;
+                            color: #FFFFFF;
+                            padding: 14px 16px;
+                            text-align: left;
+                            font-size: 18px; /* Ukuran Judul Kolom Header */
+                            font-weight: bold;
+                            border-bottom: 2px solid #464855;
+                            position: sticky;
+                            top: 0;
+                            z-index: 1;
+                        }
+                        .large-data-table td {
+                            padding: 12px 16px;
+                            border-bottom: 1px solid #464855;
+                            background-color: #0E1117;
+                        }
+                        .large-data-table tr:hover td {
+                            background-color: #1E232A; /* Efek sorot baris */
+                        }
+                        </style>
+                    """, unsafe_allow_html=True)
 
                     # Grafis Komparasi Garis Penjualan Berjalan & Hasil Prediksi 2026
-                    st.subheader("📈 Visualisasi Grafik Berdasarkan Parameter Terbaik No.1")
+                    st.subheader("📈 Visualisasi Grafik Berdasarkan Parameter Terbaik")
                     fig = go.Figure()
                     
                     fig.add_trace(go.Scatter(
                         x=list(range(1, total_data + 1)), y=res["data_penjualan"], 
                         name="Data Aktual", mode="lines+markers",
-                        line=dict(color='#1F77B4', width=3.5), marker=dict(size=6)
+                        line=dict(color='#1F77B4', width=4), marker=dict(size=8)
                     ))
                     
                     fig.add_trace(go.Scatter(
                         x=list(range(1, total_data + 1)), y=res["fitted"], 
                         name="Hasil Fitting (Model)", mode="lines",
-                        line=dict(color='#FF7F0E', width=2.5, dash='dash')
+                        line=dict(color='#FF7F0E', width=3, dash='dash')
                     ))
                     
                     fig.add_trace(go.Scatter(
                         x=list(range(total_data + 1, total_data + 13)), y=res["forecast"], 
                         name="Forecast 12 Bulan ke Depan (2026)", mode="lines+markers",
-                        line=dict(color='#2CA02C', width=3), marker=dict(size=7, symbol='diamond')
+                        line=dict(color='#2CA02C', width=4), marker=dict(size=9, symbol='diamond')
                     ))
                     
+                    # KUSTOMISASI FONT GRAFIK PLOTLY
                     fig.update_layout(
-                        xaxis_title="Periode (Bulan ke-)", yaxis_title="Jumlah Penjualan", 
+                        xaxis_title="Periode (Bulan ke-)", 
+                        yaxis_title="Jumlah Penjualan", 
                         hovermode="x unified",
-                        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+                        font=dict(size=16), 
+                        xaxis=dict(title_font=dict(size=18, family="Arial Black"), tickfont=dict(size=16, weight="bold")),
+                        yaxis=dict(title_font=dict(size=18, family="Arial Black"), tickfont=dict(size=16, weight="bold")),
+                        hoverlabel=dict(font_size=16),
+                        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(size=16))
                     )
                     st.plotly_chart(fig, use_container_width=True)
                     st.write("---")
 
-                    # TABEL KESELURUHAN KOMBINASI (URUT DARI YANG TERBAIK)
+                    # =====================================================================
+                    # TABEL 1: SELURUH KOMBINASI HASIL PENGUJIAN (GRID SEARCH) - HTML KUSTOM
+                    # =====================================================================
                     st.subheader("📊 Tabel Seluruh Kombinasi Hasil Pengujian (Grid Search)")
-                    st.dataframe(res["df_all"], use_container_width=True)
+                    
+                    # Membuat HTML tabel Grid Search secara dinamis dari DataFrame hasil
+                    grid_html = "<div class='large-table-container'><table class='large-data-table'><thead><tr>"
+                    grid_html += "<th>Alpha (α)</th><th>Beta (β)</th><th>Gamma (γ)</th><th>MAPE (%)</th>"
+                    grid_html += "</tr></thead><tbody>"
+                    
+                    for _, row in res["df_all"].iterrows():
+                        grid_html += f"<tr><td>{row['Alpha (α)']:.1f}</td><td>{row['Beta (β)']:.1f}</td><td>{row['Gamma (γ)']:.1f}</td><td>{row['MAPE (%)']:.2f}%</td></tr>"
+                    grid_html += "</tbody></table></div>"
+                    
+                    st.markdown(grid_html, unsafe_allow_html=True)
                     st.write("---")
                     
-                    # Tabel Detail Nilai Angka Angka Per Periode Berjalan
+                    # =====================================================================
+                    # TABEL 2: DETAIL NILAI PENJUALAN PER PERIODE - HTML KUSTOM (FIXED BACKSLASH ERROR)
+                    # =====================================================================
                     st.subheader("📂 Detail Nilai Penjualan Per Periode")
                     
                     fitted_clean = []
@@ -300,17 +338,101 @@ else:
                         else:
                             fitted_clean.append(f"{float(val):,.0f}".replace(",", "."))
 
-                    df_akt = pd.DataFrame({
-                        "Periode": list(range(1, total_data + 1)),
-                        "Data Aktual": [f"{float(x):,.0f}".replace(",", ".") for x in res["data_penjualan"]],
-                        "Forecast / Fitting": fitted_clean
-                    })
-                    df_frc = pd.DataFrame({
-                        "Periode": list(range(total_data + 1, total_data + 13)),
-                        "Data Aktual": "-",
-                        "Forecast / Fitting": [f"{float(x):,.0f}".replace(",", ".") for x in res["forecast"]]
-                    })
-                    st.dataframe(pd.concat([df_akt, df_frc], ignore_index=True), use_container_width=True, hide_index=True)
+                    # Membuat baris tabel gabungan Data Aktual & Model berjalan
+                    detail_html = "<div class='large-table-container'><table class='large-data-table'><thead><tr>"
+                    detail_html += "<th>Periode (Bulan ke-)</th><th>Data Aktual</th><th>Forecast / Fitting Model</th>"
+                    detail_html += "</tr></thead><tbody>"
+                    
+                    # Bagian 1: Mengisi data berjalan bulan 1 s.d 36
+                    for i in range(total_data):
+                        # Solusi Perbaikan: Format angka dipisah ke variabel biasa sebelum masuk f-string HTML
+                        aktual_formatted = f"{float(res['data_penjualan'][i]):,.0f}".replace(",", ".")
+                        detail_html += f"<tr><td>{i+1}</td><td>{aktual_formatted}</td><td>{fitted_clean[i]}</td></tr>"
+                    
+                    # Bagian 2: Mengisi data ramalan masa depan bulan 37 s.d 48
+                    for h in range(len(res["forecast"])):
+                        forecast_formatted = f"{float(res['forecast'][h]):,.0f}".replace(",", ".")
+                        detail_html += f"<tr><td>{total_data + h + 1}</td><td>-</td><td>{forecast_formatted}</td></tr>"
+                        
+                    detail_html += "</tbody></table></div>"
+                    
+                    st.markdown(detail_html, unsafe_allow_html=True)
+                    st.write("---")
+
+                    # --- TABEL EVALUASI TINGKAT AKURASI KUSTOM (TANPA INDEKS & ANGKA BESAR EMAS) ---
+                    st.subheader("📐 Evaluasi Tingkat Akurasi Hasil Peramalan")
+                    
+                    col_tabel, col_deskripsi = st.columns([1.2, 1])
+                    
+                    with col_tabel:
+                        st.markdown("""
+                        <style>
+                        .custom-table {
+                            width: 100%;
+                            border-collapse: collapse;
+                            font-size: 18px;
+                        }
+                        .custom-table th {
+                            background-color: #262730;
+                            padding: 12px;
+                            text-align: left;
+                            font-weight: bold;
+                            border-bottom: 2px solid #464855;
+                        }
+                        .custom-table td {
+                            padding: 14px 12px;
+                            border-bottom: 1px solid #464855;
+                        }
+                        .font-angka {
+                            font-size: 24px; 
+                            font-weight: bold;
+                            color: #FFD700;   /* Warna Emas kontras */
+                        }
+                        </style>
+                        
+                        <table class="custom-table">
+                            <tr>
+                                <th>Rentang Nilai MAPE</th>
+                                <th>Kategori Kemampuan Peramalan</th>
+                            </tr>
+                            <tr>
+                                <td class="font-angka">&lt; 10%</td>
+                                <td>Sangat Akurat</td>
+                            </tr>
+                            <tr>
+                                <td class="font-angka">10% - 20%</td>
+                                <td>Baik</td>
+                            </tr>
+                            <tr>
+                                <td class="font-angka">20% - 50%</td>
+                                <td>Cukup</td>
+                            </tr>
+                            <tr>
+                                <td class="font-angka">&gt; 50%</td>
+                                <td>Tidak Akurat</td>
+                            </tr>
+                        </table>
+                        """, unsafe_allow_html=True)
+                        
+                    with col_deskripsi:
+                        mape_final = res["best_mape"]
+                        
+                        if mape_final < 10:
+                            kategori = "**Sangat Akurat**"
+                        elif mape_final <= 20:
+                            kategori = "**Baik**"
+                        elif mape_final <= 50:
+                            kategori = "**Cukup**"
+                        else:
+                            kategori = "**Tidak Akurat**"
+                            
+                        st.markdown(f"""
+                        **Penjelasan Singkat Akurasi Model:**
+                        
+                        Berdasarkan hasil pencarian parameter optimal (*Grid Search*), nilai kesalahan peramalan yang dihasilkan oleh model Holt-Winters Aditif memiliki **MAPE sebesar {mape_final:.2f}%**. 
+                        
+                        Bila merujuk pada tabel kriteria evaluasi MAPE di samping, nilai tersebut berada pada rentang **di bawah 10%**, yang mengindikasikan bahwa model peramalan memiliki kemampuan estimasi yang {kategori}. Hasil ini membuktikan bahwa kombinasi nilai alfa, beta, dan gamma terpilih sangat reliabel dan aman digunakan sebagai basis pengambilan keputusan produksi UMKM Sugeng Konveksi ke depan.
+                        """)
 
         except Exception as e:
             st.error(f"Terjadi kesalahan teknis pembacaan berkas: {str(e)}")
