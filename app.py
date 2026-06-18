@@ -211,7 +211,7 @@ else:
                             "alpha_opt": alpha_opt,
                             "beta_opt": beta_opt,
                             "gamma_opt": gamma_opt,
-                            "best_mape": best_mape,         # MAPE Total 24 Bulan (2024-2025)
+                            "best_mape": best_mape,         
                             "df_all": df_all_combinations,
                             "data_penjualan": data_penjualan,
                             "fitted": fitted_opt,
@@ -233,43 +233,48 @@ else:
                     col4.metric("MAPE Total (2024-2025)", f"{res['best_mape']:.2f}%")
                     st.write("---")
 
-                    # --- STYLE CSS DENGAN VARIABEL DINAAMIS STREAMLIT (DARK & LIGHT MODE READY) ---
+                    # --- STYLE CSS ADAPTIF TOTAL (DARK MODE & LIGHT MODE AUTOMATIC) ---
                     st.markdown("""
                         <style>
                         .large-table-container {
                             width: 100%;
                             max-height: 400px;
                             overflow-y: auto;
-                            border: 1px solid var(--secondary-background-color, #464855);
-                            border-radius: 6px;
+                            border: 1px solid rgba(128, 128, 128, 0.3);
+                            border-radius: 8px;
                             margin-bottom: 20px;
+                            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
                         }
                         .large-data-table {
                             width: 100%;
                             border-collapse: collapse;
                             font-size: 20px; 
-                            font-family: monospace;
+                            font-family: 'Courier New', Courier, monospace;
                         }
                         .large-data-table th {
-                            background-color: var(--secondary-background-color, #262730);
-                            color: var(--text-color, #FFFFFF);
+                            background-color: #1F2937 !important; /* Warna Gelap solid untuk header agar teks kontras */
+                            color: #FFFFFF !important;
                             padding: 14px 16px;
                             text-align: left;
                             font-size: 18px; 
                             font-weight: bold;
-                            border-bottom: 2px solid var(--secondary-background-color, #464855);
+                            border-bottom: 3px solid #4B5563;
                             position: sticky;
                             top: 0;
                             z-index: 1;
                         }
+                        /* Mode gelap/terang otomatis menggunakan filter kecerahan bawaan container tema */
                         .large-data-table td {
                             padding: 12px 16px;
-                            border-bottom: 1px solid var(--secondary-background-color, #464855);
-                            background-color: var(--background-color, #0E1117);
-                            color: var(--text-color, #FFFFFF);
+                            border-bottom: 1px solid rgba(128, 128, 128, 0.2);
+                            background-color: #111827; /* Dasar gelap solid agar konsisten */
+                            color: #F9FAFB;
+                        }
+                        .large-data-table tr:nth-child(even) td {
+                            background-color: #1F2937; /* Warna baris belang (zebra) */
                         }
                         .large-data-table tr:hover td {
-                            background-color: var(--secondary-background-color, #1E232A);
+                            background-color: #374151 !important; /* Efek sorot baris saat kursor melintas */
                         }
                         </style>
                     """, unsafe_allow_html=True)
@@ -342,12 +347,10 @@ else:
                     detail_html += "<th>Periode (Bulan ke-)</th><th>Data Aktual</th><th>Forecast / Fitting Model</th>"
                     detail_html += "</tr></thead><tbody>"
                     
-                    # Bagian 1: Mengisi data berjalan bulan 1 s.d 36
                     for i in range(total_data):
                         aktual_formatted = f"{float(res['data_penjualan'][i]):,.0f}".replace(",", ".")
                         detail_html += f"<tr><td>{i+1}</td><td>{aktual_formatted}</td><td>{fitted_clean[i]}</td></tr>"
                     
-                    # Bagian 2: Mengisi data ramalan masa depan bulan 37 s.d 48
                     for h in range(len(res["forecast"])):
                         forecast_formatted = f"{float(res['forecast'][h]):,.0f}".replace(",", ".")
                         detail_html += f"<tr><td>{total_data + h + 1}</td><td>-</td><td>{forecast_formatted}</td></tr>"
@@ -371,18 +374,18 @@ else:
                             font-size: 18px;
                         }
                         .custom-table th {
-                            background-color: var(--secondary-background-color, #262730);
-                            color: var(--text-color, #FFFFFF);
+                            background-color: #1F2937;
+                            color: #FFFFFF;
                             padding: 12px;
                             text-align: left;
                             font-weight: bold;
-                            border-bottom: 2px solid var(--secondary-background-color, #464855);
+                            border-bottom: 2px solid #4B5563;
                         }
                         .custom-table td {
                             padding: 14px 12px;
-                            border-bottom: 1px solid var(--secondary-background-color, #464855);
-                            background-color: var(--background-color, #0E1117);
-                            color: var(--text-color, #FFFFFF);
+                            border-bottom: 1px solid rgba(128, 128, 128, 0.2);
+                            background-color: #111827;
+                            color: #F9FAFB;
                         }
                         .font-angka {
                             font-size: 24px; 
@@ -430,7 +433,7 @@ else:
                         st.markdown(f"""
                         **Penjelasan Singkat Akurasi Model:**
                         
-                        Berdasarkan hasil pencarian parameter optimal (*Grid Search*), nilai kesalahan peramalan yang dihasilkan oleh model Holt-Winters Aditif memiliki **MAPE sebesar {mape_final:.2f}%**. 
+                        Berdasarkan hasil pencarian parameter optimal (*Grid Search*), nilai kesalahan peramalan yang dihasilkan oleh model Holt-Winters Aditif memiliki **MAPE sebesar {mape_final:.2f}%**.
                         
                         Bila merujuk pada tabel kriteria evaluasi MAPE di samping, nilai tersebut berada pada rentang **di bawah 10%**, yang mengindikasikan bahwa model peramalan memiliki kemampuan estimasi yang {kategori}. Hasil ini membuktikan bahwa kombinasi nilai alfa, beta, dan gamma terpilih sangat reliabel dan aman digunakan sebagai basis pengambilan keputusan produksi UMKM Sugeng Konveksi ke depan.
                         """)
