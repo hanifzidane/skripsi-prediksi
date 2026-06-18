@@ -233,42 +233,43 @@ else:
                     col4.metric("MAPE Total (2024-2025)", f"{res['best_mape']:.2f}%")
                     st.write("---")
 
-                    # --- STYLE CSS UNTUK MODEL TABEL HTML KUSTOM BERUKURAN BESAR ---
+                    # --- STYLE CSS DENGAN VARIABEL DINAAMIS STREAMLIT (DARK & LIGHT MODE READY) ---
                     st.markdown("""
                         <style>
                         .large-table-container {
                             width: 100%;
                             max-height: 400px;
                             overflow-y: auto;
-                            border: 1px solid #464855;
+                            border: 1px solid var(--secondary-background-color, #464855);
                             border-radius: 6px;
                             margin-bottom: 20px;
                         }
                         .large-data-table {
                             width: 100%;
                             border-collapse: collapse;
-                            font-size: 20px; /* Ukuran Angka Data Diperbesar Menjadi 20px */
-                            font-family: monospace; /* Membuat digit angka sejajar vertikal */
+                            font-size: 20px; 
+                            font-family: monospace;
                         }
                         .large-data-table th {
-                            background-color: #262730;
-                            color: #FFFFFF;
+                            background-color: var(--secondary-background-color, #262730);
+                            color: var(--text-color, #FFFFFF);
                             padding: 14px 16px;
                             text-align: left;
-                            font-size: 18px; /* Ukuran Judul Kolom Header */
+                            font-size: 18px; 
                             font-weight: bold;
-                            border-bottom: 2px solid #464855;
+                            border-bottom: 2px solid var(--secondary-background-color, #464855);
                             position: sticky;
                             top: 0;
                             z-index: 1;
                         }
                         .large-data-table td {
                             padding: 12px 16px;
-                            border-bottom: 1px solid #464855;
-                            background-color: #0E1117;
+                            border-bottom: 1px solid var(--secondary-background-color, #464855);
+                            background-color: var(--background-color, #0E1117);
+                            color: var(--text-color, #FFFFFF);
                         }
                         .large-data-table tr:hover td {
-                            background-color: #1E232A; /* Efek sorot baris */
+                            background-color: var(--secondary-background-color, #1E232A);
                         }
                         </style>
                     """, unsafe_allow_html=True)
@@ -310,11 +311,10 @@ else:
                     st.write("---")
 
                     # =====================================================================
-                    # TABEL 1: SELURUH KOMBINASI HASIL PENGUJIAN (GRID SEARCH) - HTML KUSTOM
+                    # TABEL 1: SELURUH KOMBINASI HASIL PENGUJIAN (GRID SEARCH)
                     # =====================================================================
                     st.subheader("📊 Tabel Seluruh Kombinasi Hasil Pengujian (Grid Search)")
                     
-                    # Membuat HTML tabel Grid Search secara dinamis dari DataFrame hasil
                     grid_html = "<div class='large-table-container'><table class='large-data-table'><thead><tr>"
                     grid_html += "<th>Alpha (α)</th><th>Beta (β)</th><th>Gamma (γ)</th><th>MAPE (%)</th>"
                     grid_html += "</tr></thead><tbody>"
@@ -327,7 +327,7 @@ else:
                     st.write("---")
                     
                     # =====================================================================
-                    # TABEL 2: DETAIL NILAI PENJUALAN PER PERIODE - HTML KUSTOM (FIXED BACKSLASH ERROR)
+                    # TABEL 2: DETAIL NILAI PENJUALAN PER PERIODE
                     # =====================================================================
                     st.subheader("📂 Detail Nilai Penjualan Per Periode")
                     
@@ -338,14 +338,12 @@ else:
                         else:
                             fitted_clean.append(f"{float(val):,.0f}".replace(",", "."))
 
-                    # Membuat baris tabel gabungan Data Aktual & Model berjalan
                     detail_html = "<div class='large-table-container'><table class='large-data-table'><thead><tr>"
                     detail_html += "<th>Periode (Bulan ke-)</th><th>Data Aktual</th><th>Forecast / Fitting Model</th>"
                     detail_html += "</tr></thead><tbody>"
                     
                     # Bagian 1: Mengisi data berjalan bulan 1 s.d 36
                     for i in range(total_data):
-                        # Solusi Perbaikan: Format angka dipisah ke variabel biasa sebelum masuk f-string HTML
                         aktual_formatted = f"{float(res['data_penjualan'][i]):,.0f}".replace(",", ".")
                         detail_html += f"<tr><td>{i+1}</td><td>{aktual_formatted}</td><td>{fitted_clean[i]}</td></tr>"
                     
@@ -359,7 +357,7 @@ else:
                     st.markdown(detail_html, unsafe_allow_html=True)
                     st.write("---")
 
-                    # --- TABEL EVALUASI TINGKAT AKURASI KUSTOM (TANPA INDEKS & ANGKA BESAR EMAS) ---
+                    # --- TABEL EVALUASI TINGKAT AKURASI KUSTOM ---
                     st.subheader("📐 Evaluasi Tingkat Akurasi Hasil Peramalan")
                     
                     col_tabel, col_deskripsi = st.columns([1.2, 1])
@@ -373,20 +371,23 @@ else:
                             font-size: 18px;
                         }
                         .custom-table th {
-                            background-color: #262730;
+                            background-color: var(--secondary-background-color, #262730);
+                            color: var(--text-color, #FFFFFF);
                             padding: 12px;
                             text-align: left;
                             font-weight: bold;
-                            border-bottom: 2px solid #464855;
+                            border-bottom: 2px solid var(--secondary-background-color, #464855);
                         }
                         .custom-table td {
                             padding: 14px 12px;
-                            border-bottom: 1px solid #464855;
+                            border-bottom: 1px solid var(--secondary-background-color, #464855);
+                            background-color: var(--background-color, #0E1117);
+                            color: var(--text-color, #FFFFFF);
                         }
                         .font-angka {
                             font-size: 24px; 
                             font-weight: bold;
-                            color: #FFD700;   /* Warna Emas kontras */
+                            color: #FFD700;   
                         }
                         </style>
                         
