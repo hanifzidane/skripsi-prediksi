@@ -118,14 +118,14 @@ else:
     st.sidebar.write("---")
 
     st.title("FORECASTING PENJUALAN UMKM KONVEKSI")
-    st.subheader("Metode Holt-Winters Aditif — Optimasi Parameter ")
+    st.subheader("Metode Holt-Winters Aditif — Optimasi Parameter")
     st.write("---")
 
     # --- FITUR DOWNLOAD TEMPLATE EXCEL ---
-    st.sidebar.header("Unduh Tamplate")
+    st.sidebar.header("Unduh Template")
     template_bytes = generate_template()
     st.sidebar.download_button(
-        label="📥 Klik Disini ",
+        label="📥 Klik Disini",
         data=template_bytes,
         file_name="template_data_konveksi.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -233,50 +233,65 @@ else:
                     col4.metric("MAPE Total (2024-2025)", f"{res['best_mape']:.2f}%")
                     st.write("---")
 
-                    # --- STYLE CSS 100% ADAPTIF TOTAL & HEADER TIDAK TEMBUS (NON-TRANSPARENT HEADER) ---
+                    # --- STYLE CSS DENGAN EMULASI MEDIA QUERY ---
                     st.markdown("""
                         <style>
+                        :root {
+                            --tbl-bg: #ffffff;
+                            --tbl-header-bg: #f0f2f6;
+                            --tbl-zebra: #f8f9fa;
+                            --tbl-text: #31333F;
+                            --tbl-border: rgba(49, 51, 63, 0.2);
+                        }
+                        @media (prefers-color-scheme: dark) {
+                            :root {
+                                --tbl-bg: #0e1117;
+                                --tbl-header-bg: #262730;
+                                --tbl-zebra: #1f242e;
+                                --tbl-text: #fafafa;
+                                --tbl-border: rgba(250, 250, 250, 0.2);
+                            }
+                        }
                         .large-table-container {
                             width: 100%;
                             max-height: 400px;
                             overflow-y: auto;
-                            border: 1px solid rgba(128, 128, 128, 0.3);
+                            border: 1px solid var(--tbl-border);
                             border-radius: 8px;
                             margin-bottom: 20px;
                         }
                         .large-data-table {
                             width: 100%;
-                            border-collapse: collapse;
+                            border-collapse: separate;
+                            border-spacing: 0;
                             font-size: 20px; 
                             font-family: 'Courier New', Courier, monospace;
-                            background-color: var(--background-color) !important; /* Latar belakang dasar tabel mengikuti tema utama */
+                            background-color: var(--tbl-bg) !important;
                         }
                         .large-data-table th {
-                            /* Menggunakan background sekunder padat agar data yang di-scroll ke atas tidak menembus teks header */
-                            background-color: var(--secondary-background-color) !important; 
-                            color: var(--text-color) !important;
+                            background-color: var(--tbl-header-bg) !important; 
+                            color: var(--tbl-text) !important;
                             padding: 14px 16px;
                             text-align: left;
                             font-size: 18px; 
                             font-weight: bold;
-                            border-bottom: 3px solid rgba(128, 128, 128, 0.4);
+                            border-bottom: 3px solid var(--tbl-border);
                             position: sticky;
                             top: 0;
-                            z-index: 999; /* Z-Index tinggi menjamin posisi header selalu di atas baris data */
+                            z-index: 10;
                             opacity: 1 !important;
                         }
                         .large-data-table td {
                             padding: 12px 16px;
-                            border-bottom: 1px solid rgba(128, 128, 128, 0.2);
-                            background-color: var(--background-color) !important;
-                            color: var(--text-color) !important;
+                            border-bottom: 1px solid var(--tbl-border);
+                            background-color: var(--tbl-bg) !important;
+                            color: var(--tbl-text) !important;
                         }
-                        /* Efek baris belang-belang (Zebra) */
                         .large-data-table tr:nth-child(even) td {
-                            background-color: var(--secondary-background-color) !important; 
+                            background-color: var(--tbl-zebra) !important; 
                         }
                         .large-data-table tr:hover td {
-                            filter: brightness(0.92);
+                            filter: brightness(0.94);
                         }
                         </style>
                     """, unsafe_allow_html=True)
@@ -303,7 +318,6 @@ else:
                         line=dict(color='#2CA02C', width=4), marker=dict(size=9, symbol='diamond')
                     ))
                     
-                    # KUSTOMISASI FONT GRAFIK PLOTLY
                     fig.update_layout(
                         xaxis_title="Periode (Bulan ke-)", 
                         yaxis_title="Jumlah Penjualan", 
@@ -317,11 +331,8 @@ else:
                     st.plotly_chart(fig, use_container_width=True)
                     st.write("---")
 
-                    # =====================================================================
-                    # TABEL 1: SELURUH KOMBINASI HASIL PENGUJIAN (GRID SEARCH)
-                    # =====================================================================
+                    # TABEL 1: GRID SEARCH
                     st.subheader("📊 Tabel Seluruh Kombinasi Hasil Pengujian (Grid Search)")
-                    
                     grid_html = "<div class='large-table-container'><table class='large-data-table'><thead><tr>"
                     grid_html += "<th>Alpha (α)</th><th>Beta (β)</th><th>Gamma (γ)</th><th>MAPE (%)</th>"
                     grid_html += "</tr></thead><tbody>"
@@ -333,11 +344,8 @@ else:
                     st.markdown(grid_html, unsafe_allow_html=True)
                     st.write("---")
                     
-                    # =====================================================================
-                    # TABEL 2: DETAIL NILAI PENJUALAN PER PERIODE
-                    # =====================================================================
+                    # TABEL 2: DETAIL DATA PERIODE
                     st.subheader("📂 Detail Nilai Penjualan Per Periode")
-                    
                     fitted_clean = []
                     for val in res["fitted"]:
                         if pd.isna(val):
@@ -362,84 +370,30 @@ else:
                     st.markdown(detail_html, unsafe_allow_html=True)
                     st.write("---")
 
-                    # --- TABEL EVALUASI TINGKAT AKURASI KUSTOM ---
+                    # =====================================================================
+                    # --- DETAIL EVALUASI TINGKAT AKURASI DINAMIS (RINGKAS & TO THE POINT) ---
+                    # =====================================================================
                     st.subheader("📐 Evaluasi Tingkat Akurasi Hasil Peramalan")
-                    
-                    col_tabel, col_deskripsi = st.columns([1.2, 1])
-                    
-                    with col_tabel:
-                        st.markdown("""
-                        <style>
-                        .custom-table {
-                            width: 100%;
-                            border-collapse: collapse;
-                            font-size: 18px;
-                            background-color: var(--background-color) !important;
-                        }
-                        .custom-table th {
-                            background-color: var(--secondary-background-color) !important; 
-                            color: var(--text-color) !important;
-                            padding: 12px;
-                            text-align: left;
-                            font-weight: bold;
-                            border-bottom: 2px solid rgba(128, 128, 128, 0.4);
-                        }
-                        .custom-table td {
-                            padding: 14px 12px;
-                            border-bottom: 1px solid rgba(128, 128, 128, 0.2);
-                            background-color: var(--background-color) !important;
-                            color: var(--text-color) !important;
-                        }
-                        .font-angka {
-                            font-size: 24px; 
-                            font-weight: bold;
-                            color: #FFD700;   
-                        }
-                        </style>
-                        
-                        <table class="custom-table">
-                            <tr>
-                                <th>Rentang Nilai MAPE</th>
-                                <th>Kategori Kemampuan Peramalan</th>
-                            </tr>
-                            <tr>
-                                <td class="font-angka">&lt; 10%</td>
-                                <td>Sangat Akurat (Highly Accurate)</td>
-                            </tr>
-                            <tr>
-                                <td class="font-angka">10% - 20%</td>
-                                <td>Baik (Good)</td>
-                            </tr>
-                            <tr>
-                                <td class="font-angka">20% - 50%</td>
-                                <td>Layak (Reasonable)</td>
-                            </tr>
-                            <tr>
-                                <td class="font-angka">&gt; 50%</td>
-                                <td>Inakurat (Inaccurate)</td>
-                            </tr>
-                        </table>
-                        """, unsafe_allow_html=True)
-                        
-                    with col_deskripsi:
-                        mape_final = res["best_mape"]
-                        
-                        if mape_final < 10:
-                            kategori = "**Sangat Akurat (Highly Accurate)**"
-                        elif mape_final <= 20:
-                            kategori = "**Baik (Good)**"
-                        elif mape_final <= 50:
-                            kategori = "**Layak (Reasonable)**"
-                        else:
-                            kategori = "**Inakurat (Inaccurate)**"
-                            
-                        st.markdown(f"""
-                        **Penjelasan Singkat Akurasi Model:**
-                        
-                        Berdasarkan hasil pencarian parameter optimal (*Grid Search*), nilai kesalahan peramalan yang dihasilkan oleh model Holt-Winters Aditif memiliki **MAPE sebesar {mape_final:.2f}%**.
-                        
-                        Bila merujuk pada tabel kriteria evaluasi MAPE di samping, nilai tersebut berada pada rentang **di bawah 10%**, yang mengindikasikan bahwa model peramalan memiliki kemampuan estimasi yang {kategori}. Hasil ini membuktikan bahwa kombinasi nilai alfa, beta, dan gamma terpilih sangat reliabel dan aman digunakan sebagai basis pengambilan keputusan produksi UMKM Sugeng Konveksi ke depan.
-                        """)
+
+                    mape_final = res["best_mape"]
+
+                    # Penentuan kategori dinamis secara otomatis
+                    if mape_final < 10:
+                        kategori = "Sangat akurat"
+                    elif mape_final <= 20:
+                        kategori = "Baik"
+                    elif mape_final <= 50:
+                        kategori = "Cukup"
+                    else:
+                        kategori = "Tidak akurat"
+
+                    # Menampilkan teks ringkas yang diperbesar sesuai permintaan Anda
+                    st.markdown(f"""
+                        <div style="font-size: 26px; line-height: 1.8; padding: 20px; border-radius: 8px; background-color: var(--tbl-zebra); border-left: 6px solid #FFD700; font-weight: bold;">
+                            MAPE sebesar {mape_final:.2f}%, Nilai tersebut mengindikasikan bahwa model peramalan dikategori:<br>
+                            <span style="font-size: 38px; color: #0abef5;"> {kategori}</span>
+                        </div>
+                    """, unsafe_allow_html=True)
 
         except Exception as e:
             st.error(f"Terjadi kesalahan teknis pembacaan berkas: {str(e)}")
