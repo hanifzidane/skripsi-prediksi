@@ -303,28 +303,36 @@ else:
                     fig.add_trace(go.Scatter(
                         x=list(range(1, total_data + 1)), y=res["data_penjualan"], 
                         name="Data Aktual", mode="lines+markers",
-                        line=dict(color='#1F77B4', width=4), marker=dict(size=8)
+                        line=dict(color='#1F77B4', width=4), marker=dict(size=8),
+                        hovertemplate="Periode: %{x}<br>Data Aktual: Rp %{y:,.0f}<extra></extra>"
                     ))
                     
                     fig.add_trace(go.Scatter(
                         x=list(range(1, total_data + 1)), y=res["fitted"], 
                         name="Hasil Fitting (Model)", mode="lines",
-                        line=dict(color='#FF7F0E', width=3, dash='dash')
+                        line=dict(color='#FF7F0E', width=3, dash='dash'),
+                        hovertemplate="Periode: %{x}<br>Hasil Fitting: Rp %{y:,.0f}<extra></extra>"
                     ))
                     
                     fig.add_trace(go.Scatter(
                         x=list(range(total_data + 1, total_data + 13)), y=res["forecast"], 
                         name="Forecast 12 Bulan ke Depan (2026)", mode="lines+markers",
-                        line=dict(color='#2CA02C', width=4), marker=dict(size=9, symbol='diamond')
+                        line=dict(color='#2CA02C', width=4), marker=dict(size=9, symbol='diamond'),
+                        hovertemplate="Periode: %{x}<br>Forecast 2026: Rp %{y:,.0f}<extra></extra>"
                     ))
                     
                     fig.update_layout(
                         xaxis_title="Periode (Bulan ke-)", 
-                        yaxis_title="Jumlah Penjualan", 
+                        yaxis_title="Jumlah Penjualan (Rp)", 
                         hovermode="x unified",
                         font=dict(size=16), 
                         xaxis=dict(title_font=dict(size=18, family="Arial Black"), tickfont=dict(size=16, weight="bold")),
-                        yaxis=dict(title_font=dict(size=18, family="Arial Black"), tickfont=dict(size=16, weight="bold")),
+                        yaxis=dict(
+                            title_font=dict(size=18, family="Arial Black"), 
+                            tickfont=dict(size=16, weight="bold"),
+                            tickformat=",.0f"  # Menghilangkan singkatan M, berganti format angka lengkap
+                        ),
+                        separators=".,",        # Penempatan properti separator yang benar secara global layout
                         hoverlabel=dict(font_size=16),
                         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(size=16))
                     )
@@ -371,13 +379,12 @@ else:
                     st.write("---")
 
                     # =====================================================================
-                    # --- DETAIL EVALUASI TINGKAT AKURASI DINAMIS (RINGKAS & TO THE POINT) ---
+                    # --- DETAIL EVALUASI TINGKAT AKURASI DINAMIS ---
                     # =====================================================================
                     st.subheader("📐 Evaluasi Tingkat Akurasi Hasil Peramalan")
 
                     mape_final = res["best_mape"]
 
-                    # Penentuan kategori dinamis secara otomatis
                     if mape_final < 10:
                         kategori = "Sangat akurat"
                     elif mape_final <= 20:
@@ -387,7 +394,6 @@ else:
                     else:
                         kategori = "Tidak akurat"
 
-                    # Menampilkan teks ringkas yang diperbesar sesuai permintaan Anda
                     st.markdown(f"""
                         <div style="font-size: 26px; line-height: 1.8; padding: 20px; border-radius: 8px; background-color: var(--tbl-zebra); border-left: 6px solid #FFD700; font-weight: bold;">
                             MAPE sebesar {mape_final:.2f}%, Nilai tersebut mengindikasikan bahwa model peramalan dikategori:<br>
