@@ -326,13 +326,31 @@ else:
                         yaxis_title="Jumlah Penjualan (Rp)", 
                         hovermode="x unified",
                         font=dict(size=16), 
-                        xaxis=dict(title_font=dict(size=18, family="Arial Black"), tickfont=dict(size=16, weight="bold")),
+                        xaxis=dict(
+                            title_font=dict(size=18, family="Arial Black"), 
+                            tickfont=dict(size=14, weight="bold"),
+                            tickmode="linear",
+                            tick0=1,
+                            dtick=1,         
+                            # FIXED OPTIMASI: Menjaga auto-scale (rapet) sekaligus mengunci batas minimal di angka 0.5 secara dinamis agar angka -1 dan 0 lenyap total
+                            autorange=True,
+                            rangemode="nonnegative",
+                            range=[0.5, None],
+                            showgrid=True,    
+                            gridcolor="rgba(128, 128, 128, 0.2)", 
+                            gridwidth=1
+                        ),
                         yaxis=dict(
                             title_font=dict(size=18, family="Arial Black"), 
                             tickfont=dict(size=16, weight="bold"),
-                            tickformat=",.0f"  # Menghilangkan singkatan M, berganti format angka lengkap
+                            tickformat=",.0f",
+                            showgrid=True,    
+                            gridcolor="rgba(128, 128, 128, 0.2)",
+                            gridwidth=1
                         ),
-                        separators=".,",        # Penempatan properti separator yang benar secara global layout
+                        # Menjaga kondisi grafik agar tidak reset ketika legenda di-klik
+                        uirevision="constant", 
+                        separators=".,",        
                         hoverlabel=dict(font_size=16),
                         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(size=16))
                     )
